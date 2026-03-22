@@ -52,7 +52,6 @@ export default function ProfileMenu({ user }: ProfileMenuProps) {
         onClick={() => setOpen(!open)}
         className="w-10 h-10 rounded-full overflow-hidden ring-2 transition-all duration-200 focus:outline-none"
         style={{
-          ringColor: open ? '#FF6B2B' : 'transparent',
           boxShadow: open ? '0 0 0 2px #FF6B2B' : '0 0 0 2px rgba(255,255,255,0.1)',
         }}
         aria-label="Profile menu"
@@ -158,9 +157,9 @@ export default function ProfileMenu({ user }: ProfileMenuProps) {
               className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-body text-red-400 hover:bg-red-400/10 transition-colors"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                <polyline points="16 17 21 12 16 7"/>
-                <line x1="21" y1="12" x2="9" y2="12"/>
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
               </svg>
               Sign out
             </button>
