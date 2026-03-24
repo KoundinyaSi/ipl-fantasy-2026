@@ -1,4 +1,4 @@
-# 🏏 IPL Fantasy League
+# 🏏 IPL Predictor
 
 Predict IPL match winners with your crew. +1 point per correct pick. Leaderboard gets updated live.
 

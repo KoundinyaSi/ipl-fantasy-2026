@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'IPL Fantasy — Predict & Win',
+  title: 'IPL Predictor — Predict & Win',
   description: 'Predict IPL match winners with your crew. May the best cricket brain win.',
   manifest: '/manifest.json',
 }

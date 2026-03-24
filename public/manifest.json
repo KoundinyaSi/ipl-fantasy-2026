@@ -1,6 +1,6 @@
 {
-  "name": "IPL Fantasy",
-  "short_name": "IPL Fantasy",
+  "name": "IPL Predictor",
+  "short_name": "IPL Predictor",
   "description": "Predict IPL match winners with your crew",
   "start_url": "/home",
   "display": "standalone",
