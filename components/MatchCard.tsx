@@ -2,7 +2,7 @@
 
 import TeamBadge from '@/components/TeamBadge'
 import { formatMatchDate, formatRelativeTime, isVotingLocked } from '@/lib/utils'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { getInitials } from '@/lib/utils'
 import Image from 'next/image'
 
@@ -31,6 +31,7 @@ interface MatchCardProps {
   userPrediction: string | null
   allPredictions: Prediction[]
   onVote: (matchId: string, team: string) => Promise<void>
+  onUnvote: (matchId: string) => Promise<void>
 }
 
 export default function MatchCard({
@@ -39,12 +40,16 @@ export default function MatchCard({
   userPrediction,
   allPredictions,
   onVote,
+  onUnvote,
 }: MatchCardProps) {
   const [voting, setVoting] = useState(false)
   const [localPrediction, setLocalPrediction] = useState(userPrediction)
   const [locked, setLocked] = useState(() => isVotingLocked(match.match_date))
 
-  // Re-check lock every 30 seconds
+  useEffect(() => {
+    setLocalPrediction(userPrediction)
+  }, [userPrediction])
+
   useEffect(() => {
     const interval = setInterval(() => {
       setLocked(isVotingLocked(match.match_date))
@@ -54,6 +59,19 @@ export default function MatchCard({
 
   async function handleVote(team: string) {
     if (locked || voting) return
+
+    // Clicking the already-selected team → unvote
+    if (localPrediction === team) {
+      setVoting(true)
+      try {
+        await onUnvote(match.id)
+        setLocalPrediction(null)
+      } finally {
+        setVoting(false)
+      }
+      return
+    }
+
     setVoting(true)
     try {
       await onVote(match.id, team)
@@ -66,7 +84,6 @@ export default function MatchCard({
   const team1Voters = allPredictions.filter((p) => p.predicted_team === match.team1)
   const team2Voters = allPredictions.filter((p) => p.predicted_team === match.team2)
   const totalVotes = allPredictions.length
-
   const team1Pct = totalVotes > 0 ? Math.round((team1Voters.length / totalVotes) * 100) : 50
   const team2Pct = 100 - team1Pct
 
@@ -113,26 +130,20 @@ export default function MatchCard({
         />
 
         <div className="flex flex-col items-center gap-1 flex-1">
-          <span
-            className="font-display font-bold text-lg text-brand-muted"
-            style={{ letterSpacing: '0.05em' }}
-          >
+          <span className="font-display font-bold text-lg text-brand-muted" style={{ letterSpacing: '0.05em' }}>
             VS
           </span>
-          {localPrediction && (
-            <div className="text-xs text-brand-muted/60 text-center">
-              {locked ? 'Vote locked in' : 'Your pick (tap to change)'}
-            </div>
+          {localPrediction && !locked && (
+            <div className="text-xs text-brand-muted/60 text-center">tap again to unselect</div>
+          )}
+          {localPrediction && locked && (
+            <div className="text-xs text-brand-muted/60 text-center">vote locked in</div>
           )}
           {!localPrediction && !locked && (
-            <div className="text-xs text-brand-muted/60 text-center">
-              Tap a team to vote
-            </div>
+            <div className="text-xs text-brand-muted/60 text-center">tap to vote</div>
           )}
           {!localPrediction && locked && (
-            <div className="text-xs text-red-400/70 text-center">
-              No prediction placed
-            </div>
+            <div className="text-xs text-red-400/70 text-center">no pick placed</div>
           )}
         </div>
 
@@ -166,21 +177,14 @@ export default function MatchCard({
         </div>
       )}
 
-      {/* Who voted for what */}
+      {/* Who voted for what — tappable for full names */}
       {totalVotes > 0 && (
         <div
           className="px-4 py-3 flex items-start justify-between gap-4"
           style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}
         >
-          <VoterAvatars
-            voters={team1Voters}
-            currentUserId={currentUserId}
-          />
-          <VoterAvatars
-            voters={team2Voters}
-            currentUserId={currentUserId}
-            align="right"
-          />
+          <VoterAvatars voters={team1Voters} currentUserId={currentUserId} />
+          <VoterAvatars voters={team2Voters} currentUserId={currentUserId} align="right" />
         </div>
       )}
 
@@ -189,7 +193,7 @@ export default function MatchCard({
           className="px-4 py-2 text-center text-xs text-brand-muted animate-pulse"
           style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}
         >
-          Saving your pick…
+          Saving…
         </div>
       )}
     </div>
@@ -205,6 +209,18 @@ function VoterAvatars({
   currentUserId: string
   align?: 'left' | 'right'
 }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
+
   if (voters.length === 0) return <div className="flex-1" />
 
   const MAX_SHOW = 4
@@ -212,13 +228,22 @@ function VoterAvatars({
   const overflow = voters.length - MAX_SHOW
 
   return (
-    <div className={`flex flex-col gap-1 flex-1 ${align === 'right' ? 'items-end' : 'items-start'}`}>
-      <div className="flex items-center" style={{ direction: align === 'right' ? 'rtl' : 'ltr' }}>
+    <div
+      ref={ref}
+      className={`flex flex-col gap-1 flex-1 relative ${align === 'right' ? 'items-end' : 'items-start'}`}
+    >
+      {/* Avatar stack — tap/click to expand full names */}
+      <button
+        className="flex items-center focus:outline-none"
+        style={{ direction: align === 'right' ? 'rtl' : 'ltr' }}
+        onClick={() => setOpen((v) => !v)}
+        aria-label="See who voted"
+      >
         {shown.map((v, i) => (
           <div
             key={v.user_id}
             className="w-6 h-6 rounded-full overflow-hidden ring-1 ring-brand-dark flex-shrink-0"
-            style={{ marginLeft: i > 0 ? (align === 'right' ? '2px' : '-6px') : 0, zIndex: shown.length - i }}
+            style={{ marginLeft: i > 0 ? '-6px' : 0, zIndex: shown.length - i }}
             title={v.profiles.name}
           >
             {v.profiles.avatar_url ? (
@@ -247,10 +272,56 @@ function VoterAvatars({
             +{overflow}
           </div>
         )}
-      </div>
+      </button>
+
       <div className="text-[10px] text-brand-muted/50">
         {voters.length} pick{voters.length !== 1 ? 's' : ''}
       </div>
+
+      {/* Full names popover */}
+      {open && (
+        <div
+          className={`absolute bottom-8 z-50 rounded-xl py-2 min-w-[140px] animate-in ${align === 'right' ? 'right-0' : 'left-0'}`}
+          style={{
+            background: 'rgba(18,18,26,0.98)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+          }}
+        >
+          <div className="px-3 pb-1.5 text-[10px] text-brand-muted/50 uppercase tracking-wider">
+            Voted here
+          </div>
+          {voters.map((v) => (
+            <div key={v.user_id} className="flex items-center gap-2 px-3 py-1.5">
+              <div className="w-5 h-5 rounded-full overflow-hidden flex-shrink-0">
+                {v.profiles.avatar_url ? (
+                  <Image
+                    src={v.profiles.avatar_url}
+                    alt={v.profiles.name}
+                    width={20}
+                    height={20}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div
+                    className="w-full h-full flex items-center justify-center text-[8px] font-bold text-white"
+                    style={{ background: v.user_id === currentUserId ? '#FF6B2B' : '#3A3A5A' }}
+                  >
+                    {getInitials(v.profiles.name)}
+                  </div>
+                )}
+              </div>
+              <span
+                className="text-xs font-body"
+                style={{ color: v.user_id === currentUserId ? '#FF6B2B' : '#E8E8F0' }}
+              >
+                {v.profiles.name}
+                {v.user_id === currentUserId && ' (you)'}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

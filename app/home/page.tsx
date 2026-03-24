@@ -159,6 +159,21 @@ export default function HomePage() {
     })
   }
 
+  async function handleUnvote(matchId: string) {
+    const res = await fetch(`/api/predictions?match_id=${matchId}`, {
+      method: 'DELETE',
+    })
+    if (!res.ok) {
+      const data = await res.json()
+      throw new Error(data.error || 'Unvote failed')
+    }
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    setPredictions((prev) =>
+      prev.filter((p) => !(p.match_id === matchId && p.user_id === user.id))
+    )
+  }
+
   const upcomingMatches = matches.filter((m) => !m.match_ended)
   const completedMatches = matches.filter((m) => m.match_ended).reverse() // most recent first
 
@@ -283,6 +298,7 @@ export default function HomePage() {
                   }
                   allPredictions={predictions.filter((p) => p.match_id === match.id)}
                   onVote={handleVote}
+                  onUnvote={handleUnvote}
                 />
               ))
             )}
