@@ -235,7 +235,7 @@ export default function HomePage() {
       >
         <div className="flex items-center gap-2">
           <span className="text-xl">🏏</span>
-          <span className="font-display font-bold text-white text-lg">IPL Fantasy</span>
+          <span className="font-display font-bold text-white text-lg">IPL Predictor</span>
         </div>
 
         {profile && (
