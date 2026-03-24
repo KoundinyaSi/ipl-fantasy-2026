@@ -1,23 +1,23 @@
-import { createClient } from '@/lib/supabase/server'
-import { isVotingLocked } from '@/lib/utils'
-import { NextResponse } from 'next/server'
+import { createClient } from "@/lib/supabase/server";
+import { isVotingLocked } from "@/lib/utils";
+import { NextResponse } from "next/server";
 
 // GET /api/predictions?match_id=xxx
 // Returns all predictions for a match (for the vote breakdown UI)
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url)
-  const matchId = searchParams.get('match_id')
+  const { searchParams } = new URL(request.url);
+  const matchId = searchParams.get("match_id");
 
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const query = supabase
-    .from('predictions')
-    .select(`
+  const query = supabase.from("predictions").select(`
       id,
       match_id,
       predicted_team,
@@ -28,79 +28,96 @@ export async function GET(request: Request) {
         name,
         avatar_url
       )
-    `)
+    `);
 
   if (matchId) {
-    query.eq('match_id', matchId)
+    query.eq("match_id", matchId);
   } else {
     // Return current user's predictions for all matches
-    query.eq('user_id', user.id)
+    query.eq("user_id", user.id);
   }
 
-  const { data, error } = await query
+  const { data, error } = await query;
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ predictions: data })
+  return NextResponse.json({ predictions: data });
 }
 
 // POST /api/predictions
 // Body: { match_id, predicted_team }
 export async function POST(request: Request) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await request.json()
-  const { match_id, predicted_team } = body
+  const body = await request.json();
+  const { match_id, predicted_team } = body;
 
   if (!match_id || !predicted_team) {
-    return NextResponse.json({ error: 'match_id and predicted_team are required' }, { status: 400 })
+    return NextResponse.json(
+      { error: "match_id and predicted_team are required" },
+      { status: 400 },
+    );
   }
 
   // Fetch the match to check lock status and valid teams
   const { data: match, error: matchError } = await supabase
-    .from('matches')
-    .select('id, team1, team2, match_date, match_ended')
-    .eq('id', match_id)
-    .single()
+    .from("matches")
+    .select("id, team1, team2, match_date, match_ended")
+    .eq("id", match_id)
+    .single();
 
   if (matchError || !match) {
-    return NextResponse.json({ error: 'Match not found' }, { status: 404 })
+    return NextResponse.json({ error: "Match not found" }, { status: 404 });
   }
 
   if (match.match_ended) {
-    return NextResponse.json({ error: 'Match has ended, voting is closed' }, { status: 400 })
+    return NextResponse.json(
+      { error: "Match has ended, voting is closed" },
+      { status: 400 },
+    );
   }
 
   if (isVotingLocked(match.match_date)) {
-    return NextResponse.json({ error: 'Voting is locked — less than 30 minutes to match start' }, { status: 400 })
+    return NextResponse.json(
+      { error: "Voting is locked — less than 30 minutes to match start" },
+      { status: 400 },
+    );
   }
 
-  const validTeams = [match.team1, match.team2]
+  const validTeams = [match.team1, match.team2];
   if (!validTeams.includes(predicted_team)) {
-    return NextResponse.json({ error: 'Invalid team selection' }, { status: 400 })
+    return NextResponse.json(
+      { error: "Invalid team selection" },
+      { status: 400 },
+    );
   }
 
   // Check profile is approved
   const { data: profile } = await supabase
-    .from('profiles')
-    .select('is_approved')
-    .eq('id', user.id)
-    .single()
+    .from("profiles")
+    .select("is_approved")
+    .eq("id", user.id)
+    .single();
 
   if (!profile?.is_approved) {
-    return NextResponse.json({ error: 'Account not approved' }, { status: 403 })
+    return NextResponse.json(
+      { error: "Account not approved" },
+      { status: 403 },
+    );
   }
 
   // Upsert prediction (allows changing vote until lock time)
   const { data: prediction, error: predError } = await supabase
-    .from('predictions')
+    .from("predictions")
     .upsert(
       {
         user_id: user.id,
@@ -109,14 +126,64 @@ export async function POST(request: Request) {
         is_correct: null, // will be set when match ends
         updated_at: new Date().toISOString(),
       },
-      { onConflict: 'user_id,match_id' }
+      { onConflict: "user_id,match_id" },
     )
     .select()
-    .single()
+    .single();
 
   if (predError) {
-    return NextResponse.json({ error: predError.message }, { status: 500 })
+    return NextResponse.json({ error: predError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ prediction })
+  return NextResponse.json({ prediction });
+}
+
+// DELETE /api/predictions?match_id=xxx
+// Removes the current user's prediction for a match (unvote)
+export async function DELETE(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const matchId = searchParams.get("match_id");
+
+  if (!matchId) {
+    return NextResponse.json(
+      { error: "match_id is required" },
+      { status: 400 },
+    );
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Check the match isn't locked
+  const { data: match } = await supabase
+    .from("matches")
+    .select("match_date, match_ended")
+    .eq("id", matchId)
+    .single();
+
+  if (!match) {
+    return NextResponse.json({ error: "Match not found" }, { status: 404 });
+  }
+
+  if (match.match_ended || isVotingLocked(match.match_date)) {
+    return NextResponse.json({ error: "Voting is locked" }, { status: 400 });
+  }
+
+  const { error } = await supabase
+    .from("predictions")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("match_id", matchId);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true });
 }
