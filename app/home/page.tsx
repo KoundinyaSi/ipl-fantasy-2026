@@ -48,6 +48,7 @@ interface LeaderboardEntry {
   id: string
   name: string
   avatar_url: string | null
+  total_points: number
   correct_predictions: number
   total_predictions: number
   voting_streak: number
@@ -79,7 +80,7 @@ export default function HomePage() {
           .order('match_date', { ascending: true }),
         supabase
           .from('predictions')
-          .select('match_id, user_id, predicted_team, is_correct, profiles(id, name, avatar_url)'),
+          .select('match_id, user_id, predicted_team, is_correct, points, profiles(id, name, avatar_url)'),
         fetch('/api/leaderboard').then((r) => r.json()),
       ])
 
@@ -183,6 +184,9 @@ export default function HomePage() {
   const myTotalPredictions = predictions.filter(
     (p) => p.user_id === profile?.id && p.is_correct !== null
   ).length
+  const myTotalPoints = predictions
+    .filter((p) => p.user_id === profile?.id)
+    .reduce((sum, p) => sum + ((p as any).points ?? 0), 0)
 
   if (loading) {
     return (
@@ -235,13 +239,14 @@ export default function HomePage() {
       >
         <div className="flex items-center gap-2">
           <span className="text-xl">🏏</span>
-          <span className="font-display font-bold text-white text-lg">IPL Predictor</span>
+          <span className="font-display font-bold text-white text-lg">IPL Fantasy</span>
         </div>
 
         {profile && (
           <ProfileMenu
             user={{
               ...profile,
+              total_points: myTotalPoints,
               correct_predictions: myCorrectPredictions,
               total_predictions: myTotalPredictions,
             }}
@@ -269,7 +274,7 @@ export default function HomePage() {
             <div className="w-px h-8 bg-brand-border" />
             <div className="text-center">
               <div className="font-display font-bold text-xl" style={{ color: '#FFD700' }}>
-                {myCorrectPredictions}
+                {myTotalPoints}
               </div>
               <div className="text-xs text-brand-muted">Your pts</div>
             </div>
@@ -333,7 +338,7 @@ export default function HomePage() {
               <span className="text-xs text-brand-muted">{leaderboard.length} players</span>
             </div>
             <Leaderboard
-              entries={leaderboard}
+              entries={leaderboard as unknown as LeaderboardEntry[]}
               currentUserId={profile?.id || ''}
             />
           </div>
