@@ -13,6 +13,7 @@ interface ProfileMenuProps {
     email: string
     voting_streak: number
     login_streak: number
+    total_points?: number
     correct_predictions?: number
     total_predictions?: number
   }
@@ -115,9 +116,9 @@ export default function ProfileMenu({ user }: ProfileMenuProps) {
             </div>
             <div className="grid grid-cols-3 gap-3">
               <StatBadge
-                icon="🎯"
+                icon={user.voting_streak >= 3 ? "⚡" : "🎯"}
                 label="Points"
-                value={String(user.correct_predictions ?? 0)}
+                value={String(user.total_points ?? 0)}
               />
               <StatBadge
                 icon="🔥"

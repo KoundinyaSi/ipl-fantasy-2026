@@ -5,6 +5,7 @@ interface LeaderboardEntry {
   id: string
   name: string
   avatar_url: string | null
+  total_points: number
   correct_predictions: number
   total_predictions: number
   voting_streak: number
@@ -56,7 +57,7 @@ export default function Leaderboard({ entries, currentUserId }: LeaderboardProps
           entry.total_predictions > 0
             ? Math.round((entry.correct_predictions / entry.total_predictions) * 100)
             : null
-
+        const onDoublePoints = entry.voting_streak >= 3
         const rankColor =
           rank === 1 ? '#FFD700' : rank === 2 ? '#C0C0C0' : rank === 3 ? '#CD7F32' : '#E8E8F0'
 
@@ -67,11 +68,30 @@ export default function Leaderboard({ entries, currentUserId }: LeaderboardProps
             style={{
               border: isMe
                 ? '1px solid rgba(255, 107, 43, 0.3)'
-                : '1px solid rgba(255,255,255,0.05)',
+                : onDoublePoints
+                  ? '1px solid rgba(255, 215, 0, 0.15)'
+                  : '1px solid rgba(255,255,255,0.05)',
               background: isMe ? 'rgba(255, 107, 43, 0.04)' : undefined,
             }}
           >
-            {/* Top row — rank, avatar, name, points */}
+            {/* Double points banner */}
+            {onDoublePoints && (
+              <div
+                className="px-4 py-1.5 flex items-center gap-2 text-[11px] font-body font-medium"
+                style={{
+                  background: 'linear-gradient(90deg, rgba(255,215,0,0.12), rgba(255,107,43,0.08))',
+                  borderBottom: '1px solid rgba(255,215,0,0.1)',
+                  color: '#FFD700',
+                }}
+              >
+                <span>⚡</span>
+                <span>
+                  {entry.voting_streak} day streak — earning <strong>+2 pts</strong> per correct pick
+                </span>
+              </div>
+            )}
+
+            {/* Top row */}
             <div className="px-4 pt-3.5 pb-2 flex items-center gap-3">
               {/* Rank */}
               <div className="w-7 flex-shrink-0 text-center">
@@ -124,16 +144,18 @@ export default function Leaderboard({ entries, currentUserId }: LeaderboardProps
                   )}
                 </div>
                 <div className="text-[10px] text-brand-muted/40 mt-0.5">
-                  {entry.total_predictions} prediction{entry.total_predictions !== 1 ? 's' : ''}
+                  {entry.correct_predictions} correct / {entry.total_predictions} picks
                 </div>
               </div>
 
-              {/* Points — big and proud */}
+              {/* Points */}
               <div className="text-right flex-shrink-0">
                 <div className="font-display font-bold text-2xl leading-none" style={{ color: rankColor }}>
-                  {entry.correct_predictions}
+                  {entry.total_points}
                 </div>
-                <div className="text-[10px] text-brand-muted/50 mt-0.5">pts</div>
+                <div className="text-[10px] text-brand-muted/50 mt-0.5">
+                  {onDoublePoints ? '⚡ pts' : 'pts'}
+                </div>
               </div>
             </div>
 
@@ -142,7 +164,6 @@ export default function Leaderboard({ entries, currentUserId }: LeaderboardProps
               className="px-4 pb-3 flex items-center gap-2"
               style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}
             >
-              {/* Accuracy pill */}
               <StatPill
                 value={accuracy !== null ? `${accuracy}%` : '—'}
                 label="accuracy"
@@ -157,23 +178,21 @@ export default function Leaderboard({ entries, currentUserId }: LeaderboardProps
 
               <div className="w-px h-6 flex-shrink-0" style={{ background: 'rgba(255,255,255,0.06)' }} />
 
-              {/* Vote streak pill */}
               <StatPill
                 value={entry.voting_streak > 0 ? `${entry.voting_streak}d` : '—'}
                 label="streak"
                 sublabel={
                   entry.voting_streak >= 5 ? 'on fire 🔥🔥'
-                    : entry.voting_streak >= 3 ? 'heating up 🔥'
+                    : entry.voting_streak >= 3 ? '⚡ double pts active'
                       : entry.voting_streak >= 1 ? 'keep it going'
                         : STREAK_TAUNTS[Math.floor(Math.random() * STREAK_TAUNTS.length)]
                 }
                 color={
-                  entry.voting_streak >= 5 ? '#FF6B2B'
-                    : entry.voting_streak >= 3 ? '#F59E0B'
-                      : entry.voting_streak >= 1 ? '#22C55E'
-                        : '#6B6B8A'
+                  entry.voting_streak >= 3 ? '#FFD700'
+                    : entry.voting_streak >= 1 ? '#22C55E'
+                      : '#6B6B8A'
                 }
-                icon={entry.voting_streak > 0 ? '🔥' : undefined}
+                icon={entry.voting_streak >= 3 ? '⚡' : entry.voting_streak > 0 ? '🔥' : undefined}
               />
             </div>
           </div>
