@@ -23,6 +23,8 @@ interface Match {
   venue: string
   match_date: string
   status: string
+  match_started: boolean
+  match_ended: boolean
 }
 
 interface MatchCardProps {
@@ -32,6 +34,16 @@ interface MatchCardProps {
   allPredictions: Prediction[]
   onVote: (matchId: string, team: string) => Promise<void>
   onUnvote: (matchId: string) => Promise<void>
+}
+
+function getCountdown(matchDate: string): string | null {
+  const diff = new Date(matchDate).getTime() - Date.now()
+  if (diff <= 0 || diff > 24 * 60 * 60 * 1000) return null
+  const h = Math.floor(diff / (1000 * 60 * 60))
+  const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+  const s = Math.floor((diff % (1000 * 60)) / 1000)
+  if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`
+  return `${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`
 }
 
 export default function MatchCard({
@@ -46,6 +58,7 @@ export default function MatchCard({
   const [localPrediction, setLocalPrediction] = useState(userPrediction)
   const [locked, setLocked] = useState(() => isVotingLocked(match.match_date))
   const [showVoters, setShowVoters] = useState(false)
+  const [countdown, setCountdown] = useState<string | null>(() => getCountdown(match.match_date))
 
   useEffect(() => {
     setLocalPrediction(userPrediction)
@@ -55,6 +68,16 @@ export default function MatchCard({
     const interval = setInterval(() => {
       setLocked(isVotingLocked(match.match_date))
     }, 30_000)
+    return () => clearInterval(interval)
+  }, [match.match_date])
+
+  // Countdown ticks every second when match is within 24h
+  useEffect(() => {
+    const msToMatch = new Date(match.match_date).getTime() - Date.now()
+    if (msToMatch > 24 * 60 * 60 * 1000) return // more than 24h away — no countdown needed
+    const interval = setInterval(() => {
+      setCountdown(getCountdown(match.match_date))
+    }, 1000)
     return () => clearInterval(interval)
   }, [match.match_date])
 
@@ -100,12 +123,26 @@ export default function MatchCard({
             )}
           </div>
           <div className="flex-shrink-0">
-            {locked ? (
+            {match.match_started && !match.match_ended ? (
               <span
-                className="text-xs px-2.5 py-1 rounded-full font-body font-medium"
+                className="text-xs px-2.5 py-1 rounded-full font-body font-medium animate-pulse"
                 style={{ background: '#EF444422', color: '#EF4444', border: '1px solid #EF444433' }}
               >
+                🔴 Live
+              </span>
+            ) : locked ? (
+              <span
+                className="text-xs px-2.5 py-1 rounded-full font-body font-medium"
+                style={{ background: '#6B6B8A22', color: '#C4C4D4', border: '1px solid #6B6B8A33' }}
+              >
                 🔒 Locked
+              </span>
+            ) : countdown ? (
+              <span
+                className="text-xs px-2.5 py-1 rounded-full font-body font-medium tabular-nums"
+                style={{ background: '#FF6B2B22', color: '#FF6B2B', border: '1px solid #FF6B2B44' }}
+              >
+                ⏱ {countdown}
               </span>
             ) : (
               <span
