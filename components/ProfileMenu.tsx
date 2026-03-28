@@ -21,6 +21,7 @@ interface ProfileMenuProps {
 
 export default function ProfileMenu({ user }: ProfileMenuProps) {
   const [open, setOpen] = useState(false)
+  const [syncing, setSyncing] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const supabase = createClient()
@@ -41,17 +42,34 @@ export default function ProfileMenu({ user }: ProfileMenuProps) {
     router.push('/')
   }
 
+  async function handleSync() {
+    setSyncing(true)
+    try {
+      const res = await fetch('/api/matches/sync', {
+        headers: { Authorization: `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET ?? ''}` },
+      })
+      const data = await res.json()
+      alert(res.ok ? `✅ Synced ${data.synced} matches, resolved ${data.resultsProcessed} results.` : `❌ Sync failed: ${data.error}`)
+    } catch {
+      alert('❌ Sync request failed.')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   const accuracy =
     user.total_predictions && user.total_predictions > 0
       ? Math.round(((user.correct_predictions || 0) / user.total_predictions) * 100)
       : null
+
+  const isAdmin = user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL
 
   return (
     <div ref={menuRef} className="relative">
       {/* Avatar trigger */}
       <button
         onClick={() => setOpen(!open)}
-        className="w-10 h-10 rounded-full overflow-hidden ring-2 transition-all duration-200 focus:outline-none"
+        className="w-10 h-10 rounded-full overflow-hidden transition-all duration-200 focus:outline-none"
         style={{
           boxShadow: open ? '0 0 0 2px #FF6B2B' : '0 0 0 2px rgba(255,255,255,0.1)',
         }}
@@ -153,6 +171,21 @@ export default function ProfileMenu({ user }: ProfileMenuProps) {
 
           {/* Actions */}
           <div className="p-2">
+            {isAdmin && (
+              <button
+                onClick={handleSync}
+                disabled={syncing}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-body transition-colors disabled:opacity-50"
+                style={{ color: '#FFD700' }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="23 4 23 10 17 10" />
+                  <polyline points="1 20 1 14 7 14" />
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                </svg>
+                {syncing ? 'Syncing…' : 'Sync match data'}
+              </button>
+            )}
             <button
               onClick={handleLogout}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-body text-red-400 hover:bg-red-400/10 transition-colors"
