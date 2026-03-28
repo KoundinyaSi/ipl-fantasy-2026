@@ -1,18 +1,18 @@
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --brand-orange: #FF6B2B;
-  --brand-gold: #FFD700;
-  --brand-dark: #0A0A0F;
-  --brand-card: #12121A;
-  --brand-card-hover: #16161F;
-  --brand-border: #1E1E2E;
-  --brand-muted: #6B6B8A;
-  --brand-text: #E8E8F0;
+  --brand-orange: #ff6b2b;
+  --brand-gold: #ffd700;
+  --brand-dark: #0a0a0f;
+  --brand-card: #12121a;
+  --brand-card-hover: #16161f;
+  --brand-border: #1e1e2e;
+  --brand-muted: #c4c4d4;
+  --brand-text: #f0f0f8;
 }
 
 * {
@@ -27,14 +27,21 @@ body {
   overflow-x: hidden;
   background: var(--brand-dark);
   color: var(--brand-text);
-  font-family: 'DM Sans', sans-serif;
+  font-family: "DM Sans", sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
 /* Scrollbar */
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: var(--brand-dark); }
-::-webkit-scrollbar-thumb { background: var(--brand-border); border-radius: 2px; }
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: var(--brand-dark);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--brand-border);
+  border-radius: 2px;
+}
 
 /* Glassmorphism utility */
 .glass {
@@ -53,7 +60,7 @@ body {
 
 /* Noise texture overlay */
 .noise::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
@@ -64,13 +71,17 @@ body {
 
 /* Team badge glow */
 .team-glow {
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  transition:
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
 }
 .team-glow:hover {
   transform: scale(1.04);
 }
 .team-glow.selected {
-  box-shadow: 0 0 0 2px var(--glow-color, #FF6B2B), 0 0 24px rgba(255, 107, 43, 0.35);
+  box-shadow:
+    0 0 0 2px var(--glow-color, #ff6b2b),
+    0 0 24px rgba(255, 107, 43, 0.35);
 }
 
 /* Floating nav pill */
@@ -88,27 +99,47 @@ body {
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Match card shimmer for loading */
 @keyframes shimmer {
-  0%   { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 .shimmer {
-  background: linear-gradient(90deg, #12121A 25%, #1E1E2E 50%, #12121A 75%);
+  background: linear-gradient(90deg, #12121a 25%, #1e1e2e 50%, #12121a 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
 
 /* Rank medal colors */
-.rank-1 { color: #FFD700; }
-.rank-2 { color: #C0C0C0; }
-.rank-3 { color: #CD7F32; }
+.rank-1 {
+  color: #ffd700;
+}
+.rank-2 {
+  color: #c0c0c0;
+}
+.rank-3 {
+  color: #cd7f32;
+}
 
 /* Correct / incorrect prediction indicators */
-.correct   { color: #22C55E; }
-.incorrect { color: #EF4444; }
+.correct {
+  color: #22c55e;
+}
+.incorrect {
+  color: #ef4444;
+}
