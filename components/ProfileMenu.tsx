@@ -62,7 +62,7 @@ export default function ProfileMenu({ user }: ProfileMenuProps) {
       ? Math.round(((user.correct_predictions || 0) / user.total_predictions) * 100)
       : null
 
-  const isAdmin = user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL
+  const isAdmin = user.email?.toLowerCase() === process.env.NEXT_PUBLIC_ADMIN_EMAIL?.toLowerCase().trim()
 
   return (
     <div ref={menuRef} className="relative">
