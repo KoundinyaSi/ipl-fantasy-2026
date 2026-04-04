@@ -1,5 +1,6 @@
 'use client'
 
+import FantasyTab from '@/components/FantasyTab'
 import FloatingNav from '@/components/FloatingNav'
 import Leaderboard from '@/components/Leaderboard'
 import MatchCard from '@/components/MatchCard'
@@ -9,7 +10,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-type Tab = 'matches' | 'results' | 'leaderboard'
+type Tab = 'matches' | 'results' | 'leaderboard' | 'fantasy'
 
 interface Profile {
   id: string
@@ -48,10 +49,18 @@ interface LeaderboardEntry {
   id: string
   name: string
   avatar_url: string | null
-  total_points: number
   correct_predictions: number
   total_predictions: number
   voting_streak: number
+  total_points: number
+}
+
+interface FantasyEntry {
+  id: string
+  name: string
+  avatar_url: string | null
+  total_fantasy_points: number
+  matches_played: number
 }
 
 export default function HomePage() {
@@ -60,6 +69,7 @@ export default function HomePage() {
   const [matches, setMatches] = useState<Match[]>([])
   const [predictions, setPredictions] = useState<Prediction[]>([])
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
+  const [fantasyLeaderboard, setFantasyLeaderboard] = useState<FantasyEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const supabase = createClient()
@@ -72,7 +82,7 @@ export default function HomePage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/'); return }
 
-      const [profileRes, matchesRes, predsRes, lbRes] = await Promise.all([
+      const [profileRes, matchesRes, predsRes, lbRes, fantasyLbRes] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', user.id).single(),
         supabase
           .from('matches')
@@ -82,12 +92,14 @@ export default function HomePage() {
           .from('predictions')
           .select('match_id, user_id, predicted_team, is_correct, points, profiles(id, name, avatar_url)'),
         fetch('/api/leaderboard').then((r) => r.json()),
+        fetch('/api/fantasy/leaderboard').then((r) => r.json()),
       ])
 
       if (profileRes.data) setProfile(profileRes.data)
       if (matchesRes.data) setMatches(matchesRes.data)
       if (predsRes.data) setPredictions(predsRes.data as unknown as Prediction[])
       if (lbRes.leaderboard) setLeaderboard(lbRes.leaderboard)
+      if (fantasyLbRes.leaderboard) setFantasyLeaderboard(fantasyLbRes.leaderboard)
     } catch (e) {
       setError('Failed to load data. Please refresh.')
       console.error(e)
@@ -367,10 +379,17 @@ export default function HomePage() {
               <span className="text-xs text-brand-muted">{leaderboard.length} players</span>
             </div>
             <Leaderboard
-              entries={leaderboard as unknown as LeaderboardEntry[]}
+              entries={leaderboard}
               currentUserId={profile?.id || ''}
             />
           </div>
+        )}
+
+        {tab === 'fantasy' && (
+          <FantasyTab
+            matches={matches}
+            currentUserId={profile?.id || ''}
+          />
         )}
       </main>
 

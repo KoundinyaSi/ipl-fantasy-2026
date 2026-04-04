@@ -142,3 +142,59 @@ export async function fetchMatchInfo(
 
   return processMatch(data.data as CricAPIMatch);
 }
+
+/** Fetch combined squad for a match from CricAPI */
+export async function fetchMatchSquad(matchId: string): Promise<
+  Array<{
+    teamName: string;
+    players: Array<{
+      id: string;
+      name: string;
+      role: string;
+      country: string;
+      playerImg: string;
+    }>;
+  }>
+> {
+  const res = await fetch(
+    `${CRICAPI_BASE}/match_squad?apikey=${API_KEY}&id=${matchId}`,
+    { next: { revalidate: 0 } },
+  );
+  if (!res.ok) throw new Error(`CricAPI squad error: ${res.status}`);
+  const data = await res.json();
+  if (!data.data) return [];
+  return data.data;
+}
+
+/** Fetch scorecard for a completed match */
+export async function fetchMatchScorecard(matchId: string): Promise<{
+  innings: Array<{
+    inning: string;
+    batting: object[];
+    bowling: object[];
+    catching: object[];
+  }>;
+  matchWinner: string | null;
+} | null> {
+  const res = await fetch(
+    `${CRICAPI_BASE}/match_scorecard?apikey=${API_KEY}&id=${matchId}`,
+    { next: { revalidate: 0 } },
+  );
+  if (!res.ok) return null;
+  const data = await res.json();
+  if (!data.data?.scorecard) return null;
+
+  const statusLower = (data.data.status || "").toLowerCase();
+  const isFinished =
+    data.data.matchEnded ||
+    statusLower.includes("won") ||
+    statusLower.includes("no result") ||
+    statusLower.includes("tied");
+
+  if (!isFinished) return null;
+
+  return {
+    innings: data.data.scorecard,
+    matchWinner: data.data.matchWinner || null,
+  };
+}
