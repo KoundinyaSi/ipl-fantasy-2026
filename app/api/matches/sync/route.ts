@@ -61,6 +61,24 @@ export async function GET(request: Request) {
           match.match_date,
         );
         resultsProcessed++;
+
+        // Also calculate fantasy points for this match
+        // Only runs if there are unresolved fantasy picks (points_earned still 0)
+        const { data: unresolved } = await supabase
+          .from("fantasy_pick_players")
+          .select("id")
+          .eq("points_earned", 0)
+          .limit(1)
+          .returns<{ id: string }[]>();
+
+        if (unresolved && unresolved.length > 0) {
+          const appUrl =
+            process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+          await fetch(`${appUrl}/api/fantasy/scorecard?match_id=${match.id}`, {
+            method: "POST",
+            headers: { authorization: `Bearer ${process.env.CRON_SECRET}` },
+          }).catch((e) => console.error("Fantasy scorecard error:", e));
+        }
       }
     }
 
@@ -96,25 +114,24 @@ async function resolveMatchPredictions(
 
   const matchDay = matchDate.slice(0, 10);
 
+  // Streak is match-level: each correct pick increments, each wrong pick resets.
+  // No sorting needed — every match is independent regardless of same-day matches.
   for (const prediction of predictions) {
     const isCorrect = prediction.predicted_team === winner;
 
     if (isCorrect) {
-      // Fetch current streak BEFORE updating — this determines points awarded
+      // Fetch streak BEFORE updating — determines points awarded
       const { data: profile } = await supabase
         .from("profiles")
-        .select("voting_streak, last_correct_vote_date")
+        .select("voting_streak")
         .eq("id", prediction.user_id)
         .single();
 
       const currentStreak = profile?.voting_streak ?? 0;
 
-      // Streak rule:
-      //   streak 0–2 correct in a row → still building → +1 pt
-      //   streak 3+ (i.e. 4th correct prediction onwards) → +2 pts
+      // Points rule: 3+ match streak → +2 pts, otherwise +1
       const points = currentStreak >= 3 ? 2 : 1;
 
-      // Resolve prediction with correct points
       await supabase
         .from("predictions")
         .update({
@@ -124,13 +141,12 @@ async function resolveMatchPredictions(
         })
         .eq("id", prediction.id);
 
-      // Update voting streak
       await supabase.rpc("update_voting_streak", {
         p_user_id: prediction.user_id,
         match_day: matchDay,
       });
     } else {
-      // Wrong prediction — 0 points, streak resets
+      // Wrong prediction — 0 points, streak always resets unconditionally
       await supabase
         .from("predictions")
         .update({
@@ -140,20 +156,10 @@ async function resolveMatchPredictions(
         })
         .eq("id", prediction.id);
 
-      // Reset voting streak unconditionally on a wrong prediction
-      // (streak = consecutive correct DAYS — one wrong ends it)
-      const { data: profile } = await supabase
+      await supabase
         .from("profiles")
-        .select("last_correct_vote_date")
-        .eq("id", prediction.user_id)
-        .single();
-
-      if (profile && profile.last_correct_vote_date !== matchDay) {
-        await supabase
-          .from("profiles")
-          .update({ voting_streak: 0, updated_at: new Date().toISOString() })
-          .eq("id", prediction.user_id);
-      }
+        .update({ voting_streak: 0, updated_at: new Date().toISOString() })
+        .eq("id", prediction.user_id);
     }
   }
 }
