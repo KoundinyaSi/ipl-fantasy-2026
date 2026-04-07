@@ -28,14 +28,23 @@ export async function GET(request: Request) {
     let resultsProcessed = 0;
 
     for (const match of matches) {
+      const team1 = [match.team1, match.team2].sort()[0];
+      const team2 = [match.team1, match.team2].sort()[1];
+
+      const matchDay = new Date(match.match_date).toISOString().slice(0, 10);
+
       const { error: matchError } = await supabase.from("matches").upsert(
         {
           id: match.id,
           name: match.name,
-          team1: match.team1,
-          team2: match.team2,
+          team1: team1,
+          team2: team2,
           venue: match.venue,
-          match_date: match.match_date,
+          match_date:
+            new Date(match.match_date).getHours() === 0
+              ? undefined // don't overwrite with bad data
+              : match.match_date,
+          match_day: matchDay,
           status: match.status,
           winner: match.winner,
           match_started: match.match_started,
@@ -43,7 +52,7 @@ export async function GET(request: Request) {
           raw_data: match.raw_data,
           last_synced: new Date().toISOString(),
         },
-        { onConflict: "id" },
+        { onConflict: "team1,team2,match_day" },
       );
 
       if (matchError) {
