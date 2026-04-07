@@ -204,7 +204,7 @@ export default function HomePage() {
     )
   }
 
-  const upcomingMatches = matches.filter((m) => !m.match_ended)
+  const upcomingMatches = matches.filter((m) => !m.match_started)
   const completedMatches = matches.filter((m) => m.match_ended).reverse() // most recent first
 
   const myCorrectPredictions = predictions.filter(

@@ -37,13 +37,24 @@ interface MatchCardProps {
 }
 
 function getCountdown(matchDate: string): string | null {
-  const diff = new Date(matchDate).getTime() - Date.now()
-  if (diff <= 0 || diff > 24 * 60 * 60 * 1000) return null
-  const h = Math.floor(diff / (1000 * 60 * 60))
-  const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
-  const s = Math.floor((diff % (1000 * 60)) / 1000)
-  if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`
-  return `${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`
+  const THIRTY_MIN = 30 * 60 * 1000;
+
+  // subtract 30 mins from match time
+  const targetTime = new Date(matchDate).getTime() - THIRTY_MIN;
+
+  const diff = targetTime - Date.now();
+
+  if (diff <= 0 || diff > 24 * 60 * 60 * 1000) return null;
+
+  const h = Math.floor(diff / (1000 * 60 * 60));
+  const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  const s = Math.floor((diff % (1000 * 60)) / 1000);
+
+  if (h > 0) {
+    return `${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
+  }
+
+  return `${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
 }
 
 export default function MatchCard({
