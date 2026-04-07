@@ -48,8 +48,8 @@ export default function ResultCard({ match, currentUserId, allPredictions }: Res
         border: myResult === true
           ? '1px solid rgba(34, 197, 94, 0.2)'
           : myResult === false
-          ? '1px solid rgba(239, 68, 68, 0.15)'
-          : '1px solid rgba(255,255,255,0.05)',
+            ? '1px solid rgba(239, 68, 68, 0.15)'
+            : '1px solid rgba(255,255,255,0.05)',
       }}
     >
       {/* My result banner */}
@@ -64,9 +64,9 @@ export default function ResultCard({ match, currentUserId, allPredictions }: Res
           }}
         >
           {myResult === true ? (
-            <><span>✅</span><span className="correct">You got it right — +1 point</span></>
+            <><span>✅</span><span className="correct">You got it right</span></>
           ) : (
-            <><span>❌</span><span className="incorrect">You picked {myPrediction.predicted_team.split(' ').pop()}</span></>
+            <><span>❌</span><span className="incorrect">You picked {myPrediction.predicted_team}</span></>
           )}
         </div>
       )}
