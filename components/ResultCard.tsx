@@ -40,6 +40,7 @@ export default function ResultCard({ match, currentUserId, allPredictions }: Res
 
   const isWinner = (team: string) => match.winner === team
   const myResult = myPrediction?.is_correct
+  const abandonedMatch = isWinner(match.team1) === false && isWinner(match.team2) === false
 
   return (
     <div
@@ -52,8 +53,36 @@ export default function ResultCard({ match, currentUserId, allPredictions }: Res
             : '1px solid rgba(255,255,255,0.05)',
       }}
     >
+
+      {abandonedMatch && (
+        <div
+          className="px-4 py-2 text-xs font-body font-medium flex items-center gap-2"
+          style={{
+            background: 'rgba(121, 84, 25, 0.34)',
+            borderBottom: '1px solid rgba(255,255,255,0.04)',
+          }}
+        >
+          <span>⚠️</span><span className="incorrect">Match Abandoned</span>
+        </div>
+      )}
+
+      {!myPrediction && !abandonedMatch && (
+        <div
+          className="px-4 py-2 text-xs font-body font-medium flex items-center gap-2"
+          style={{
+            background: myResult === true
+              ? 'rgba(34, 197, 94, 0.1)'
+              : 'rgba(239, 68, 68, 0.08)',
+            borderBottom: '1px solid rgba(255,255,255,0.04)',
+          }}
+        >
+          <span className="incorrect">Match Abandoned</span>
+        </div>
+      )}
+
+
       {/* My result banner */}
-      {myPrediction && (
+      {myPrediction && !abandonedMatch && (
         <div
           className="px-4 py-2 text-xs font-body font-medium flex items-center gap-2"
           style={{
@@ -71,7 +100,7 @@ export default function ResultCard({ match, currentUserId, allPredictions }: Res
         </div>
       )}
 
-      {!myPrediction && (
+      {!myPrediction && !abandonedMatch && (
         <div
           className="px-4 py-2 text-xs text-brand-muted/50 font-body"
           style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
@@ -139,7 +168,7 @@ export default function ResultCard({ match, currentUserId, allPredictions }: Res
       </div>
 
       {/* Vote breakdown */}
-      {totalVotes > 0 && (
+      {totalVotes > 0 && !abandonedMatch && (
         <>
           <div className="px-4 pb-2">
             <div className="h-1.5 rounded-full overflow-hidden flex" style={{ background: '#1E1E2E' }}>
@@ -161,16 +190,19 @@ export default function ResultCard({ match, currentUserId, allPredictions }: Res
           </div>
 
           {/* Individual votes with outcome */}
-          <div
-            className="px-4 py-3 space-y-2"
-            style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}
-          >
-            <div className="text-[10px] text-brand-muted/50 uppercase tracking-wider mb-2">Who picked what</div>
-            <div className="grid grid-cols-2 gap-3">
-              <VoterList voters={team1Voters} teamName={match.team1} isWinnerTeam={isWinner(match.team1)} />
-              <VoterList voters={team2Voters} teamName={match.team2} isWinnerTeam={isWinner(match.team2)} />
+          {!abandonedMatch && (
+
+            <div
+              className="px-4 py-3 space-y-2"
+              style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}
+            >
+              <div className="text-[10px] text-brand-muted/50 uppercase tracking-wider mb-2">Who picked what</div>
+              <div className="grid grid-cols-2 gap-3">
+                <VoterList voters={team1Voters} teamName={match.team1} isWinnerTeam={isWinner(match.team1)} />
+                <VoterList voters={team2Voters} teamName={match.team2} isWinnerTeam={isWinner(match.team2)} />
+              </div>
             </div>
-          </div>
+          )}
         </>
       )}
     </div>
