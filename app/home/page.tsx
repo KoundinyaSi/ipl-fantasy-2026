@@ -102,36 +102,7 @@ export default function HomePage() {
       loadData()
     }
   }, [loadData])
-
-  // Option 4 — auto-sync on page load if a match has started but not ended
-  // and enough time has passed that it should be over (3.5h window)
-  useEffect(() => {
-    if (matches.length === 0) return
-
-    const now = Date.now()
-    const shouldSync = matches.some((m) => {
-      if (!m.match_started || m.match_ended) return false
-      const startedMsAgo = now - new Date(m.match_date).getTime()
-      // Match started but DB still says not ended — trigger sync if it's been 30min+ since start
-      return startedMsAgo > 30 * 60 * 1000
-    })
-
-    if (!shouldSync) return
-
-    console.log('Auto-sync triggered: match in progress or recently finished')
-    fetch('/api/matches/sync', {
-      headers: { Authorization: `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET ?? ''}` },
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.resultsProcessed > 0) {
-          // Results were resolved — reload everything so UI reflects new scores
-          loadData()
-        }
-      })
-      .catch(() => {/* silently ignore — this is a best-effort background sync */ })
-  }, [matches, loadData])
-
+ 
   // Real-time predictions updates
   useEffect(() => {
     const channel = supabase
