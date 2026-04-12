@@ -42,7 +42,7 @@ export async function GET(request: Request) {
           venue: match.venue,
           match_date:
             new Date(match.match_date).getHours() === 0
-              ? undefined // don't overwrite with bad data
+              ? undefined
               : match.match_date,
           match_day: matchDay,
           status: match.status,
@@ -113,62 +113,63 @@ async function resolveMatchPredictions(
   winner: string,
   matchDate: string,
 ) {
-  const { data: predictions, error } = await supabase
-    .from("predictions")
-    .select("id, user_id, predicted_team")
-    .eq("match_id", matchId)
-    .is("is_correct", null);
-
-  if (error || !predictions?.length) return;
-
   const matchDay = matchDate.slice(0, 10);
 
-  // Streak is match-level: each correct pick increments, each wrong pick resets.
-  // No sorting needed — every match is independent regardless of same-day matches.
-  for (const prediction of predictions) {
-    const isCorrect = prediction.predicted_team === winner;
+  // ─── CORRECT PREDICTIONS ─────────────────────────────────────────────────
+  // Atomically claim all correct predictions in a single UPDATE...RETURNING.
+  // The IS NULL check acts as a lock — only the first sync to run this update
+  // gets rows back. Any concurrent sync finds 0 rows already claimed and skips
+  // streak/points logic entirely. This prevents the race condition where two
+  // simultaneous syncs both read is_correct=null, both process, and both call
+  // update_voting_streak causing double streak increments.
+  const { data: claimedCorrect } = await supabase
+    .from("predictions")
+    .update({ is_correct: true, updated_at: new Date().toISOString() })
+    .eq("match_id", matchId)
+    .eq("predicted_team", winner)
+    .is("is_correct", null)
+    .select("id, user_id");
 
-    if (isCorrect) {
-      // Fetch streak BEFORE updating — determines points awarded
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("voting_streak")
-        .eq("id", prediction.user_id)
-        .single();
+  for (const prediction of claimedCorrect ?? []) {
+    // Fetch streak BEFORE updating — determines points awarded
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("voting_streak")
+      .eq("id", prediction.user_id)
+      .single();
 
-      const currentStreak = profile?.voting_streak ?? 0;
+    const currentStreak = profile?.voting_streak ?? 0;
 
-      // Points rule: 3+ match streak → +2 pts, otherwise +1
-      const points = currentStreak >= 3 ? 2 : 1;
+    // Points rule: 3+ match streak → +2 pts, otherwise +1
+    const points = currentStreak >= 3 ? 2 : 1;
 
-      await supabase
-        .from("predictions")
-        .update({
-          is_correct: true,
-          points,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", prediction.id);
+    // Write points now that we have the streak value
+    await supabase
+      .from("predictions")
+      .update({ points, updated_at: new Date().toISOString() })
+      .eq("id", prediction.id);
 
-      await supabase.rpc("update_voting_streak", {
-        p_user_id: prediction.user_id,
-        match_day: matchDay,
-      });
-    } else {
-      // Wrong prediction — 0 points, streak always resets unconditionally
-      await supabase
-        .from("predictions")
-        .update({
-          is_correct: false,
-          points: 0,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", prediction.id);
+    // Increment streak
+    await supabase.rpc("update_voting_streak", {
+      p_user_id: prediction.user_id,
+      match_day: matchDay,
+    });
+  }
 
-      await supabase
-        .from("profiles")
-        .update({ voting_streak: 0, updated_at: new Date().toISOString() })
-        .eq("id", prediction.user_id);
-    }
+  // ─── WRONG PREDICTIONS ───────────────────────────────────────────────────
+  // Same atomic claim pattern for wrong predictions.
+  const { data: claimedWrong } = await supabase
+    .from("predictions")
+    .update({ is_correct: false, points: 0, updated_at: new Date().toISOString() })
+    .eq("match_id", matchId)
+    .neq("predicted_team", winner)
+    .is("is_correct", null)
+    .select("id, user_id");
+
+  for (const prediction of claimedWrong ?? []) {
+    await supabase
+      .from("profiles")
+      .update({ voting_streak: 0, updated_at: new Date().toISOString() })
+      .eq("id", prediction.user_id);
   }
 }
