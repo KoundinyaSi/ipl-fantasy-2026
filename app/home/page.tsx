@@ -102,7 +102,30 @@ export default function HomePage() {
       loadData()
     }
   }, [loadData])
- 
+
+  useEffect(() => {
+    if (matches.length === 0) return
+
+    const now = Date.now()
+    const sixHoursMs = 6 * 60 * 60 * 1000
+
+    const hasRecentlyEndedMatch = matches.some((m) => {
+      if (!m.match_ended) return false
+      const matchEndEstimate = new Date(m.match_date).getTime() + (4 * 60 * 60 * 1000)
+      const endedMsAgo = now - matchEndEstimate
+      return endedMsAgo > 0 && endedMsAgo < sixHoursMs
+    })
+
+    if (!hasRecentlyEndedMatch) return
+
+    fetch('/api/matches/sync', {
+      headers: { Authorization: `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET ?? ''}` },
+    })
+      .then((r) => r.json())
+      .then((data) => { if (data.resultsProcessed > 0) loadData() })
+      .catch(() => { })
+  }, [matches, loadData])
+
   // Real-time predictions updates
   useEffect(() => {
     const channel = supabase
