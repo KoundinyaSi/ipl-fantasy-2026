@@ -24,13 +24,19 @@ export async function GET(request: Request) {
       });
     }
 
+    // Sort matches chronologically before processing — critical for double headers.
+    // Streak resets from match 1 must be written to DB before match 2 reads them.
+    const sortedMatches = [...matches].sort(
+      (a, b) =>
+        new Date(a.match_date).getTime() - new Date(b.match_date).getTime(),
+    );
+
     let synced = 0;
     let resultsProcessed = 0;
 
-    for (const match of matches) {
+    for (const match of sortedMatches) {
       const team1 = [match.team1, match.team2].sort()[0];
       const team2 = [match.team1, match.team2].sort()[1];
-
       const matchDay = new Date(match.match_date).toISOString().slice(0, 10);
 
       const { error: matchError } = await supabase.from("matches").upsert(
@@ -63,6 +69,10 @@ export async function GET(request: Request) {
       synced++;
 
       if (match.match_ended && match.winner) {
+        // Process predictions fully and wait for all DB writes to complete
+        // before moving to the next match. This ensures streak state is
+        // accurate for subsequent matches — especially critical on double headers
+        // where match 2's streak calculation must see match 1's reset.
         await resolveMatchPredictions(
           supabase,
           match.id,
@@ -71,8 +81,7 @@ export async function GET(request: Request) {
         );
         resultsProcessed++;
 
-        // Also calculate fantasy points for this match
-        // Only runs if there are unresolved fantasy picks (points_earned still 0)
+        // Fantasy points
         const { data: unresolved } = await supabase
           .from("fantasy_pick_players")
           .select("id")
@@ -116,12 +125,8 @@ async function resolveMatchPredictions(
   const matchDay = matchDate.slice(0, 10);
 
   // ─── CORRECT PREDICTIONS ─────────────────────────────────────────────────
-  // Atomically claim all correct predictions in a single UPDATE...RETURNING.
-  // The IS NULL check acts as a lock — only the first sync to run this update
-  // gets rows back. Any concurrent sync finds 0 rows already claimed and skips
-  // streak/points logic entirely. This prevents the race condition where two
-  // simultaneous syncs both read is_correct=null, both process, and both call
-  // update_voting_streak causing double streak increments.
+  // Atomic UPDATE...RETURNING — claims all correct unresolved predictions in
+  // one DB operation. Second sync finds 0 rows (already claimed) and skips.
   const { data: claimedCorrect } = await supabase
     .from("predictions")
     .update({ is_correct: true, updated_at: new Date().toISOString() })
@@ -130,8 +135,9 @@ async function resolveMatchPredictions(
     .is("is_correct", null)
     .select("id, user_id");
 
+  // Process each correct prediction sequentially — not Promise.all —
+  // so streak reads always see the latest written state
   for (const prediction of claimedCorrect ?? []) {
-    // Fetch streak BEFORE updating — determines points awarded
     const { data: profile } = await supabase
       .from("profiles")
       .select("voting_streak")
@@ -139,17 +145,13 @@ async function resolveMatchPredictions(
       .single();
 
     const currentStreak = profile?.voting_streak ?? 0;
-
-    // Points rule: 3+ match streak → +2 pts, otherwise +1
     const points = currentStreak >= 3 ? 2 : 1;
 
-    // Write points now that we have the streak value
     await supabase
       .from("predictions")
       .update({ points, updated_at: new Date().toISOString() })
       .eq("id", prediction.id);
 
-    // Increment streak
     await supabase.rpc("update_voting_streak", {
       p_user_id: prediction.user_id,
       match_day: matchDay,
@@ -157,15 +159,19 @@ async function resolveMatchPredictions(
   }
 
   // ─── WRONG PREDICTIONS ───────────────────────────────────────────────────
-  // Same atomic claim pattern for wrong predictions.
   const { data: claimedWrong } = await supabase
     .from("predictions")
-    .update({ is_correct: false, points: 0, updated_at: new Date().toISOString() })
+    .update({
+      is_correct: false,
+      points: 0,
+      updated_at: new Date().toISOString(),
+    })
     .eq("match_id", matchId)
     .neq("predicted_team", winner)
     .is("is_correct", null)
     .select("id, user_id");
 
+  // Reset streaks sequentially for the same reason
   for (const prediction of claimedWrong ?? []) {
     await supabase
       .from("profiles")
