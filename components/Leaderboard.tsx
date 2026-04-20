@@ -86,7 +86,7 @@ export default function Leaderboard({ entries, currentUserId }: LeaderboardProps
               >
                 <span>⚡</span>
                 <span>
-                  {entry.voting_streak} day streak — earning <strong>+2 pts</strong> per correct pick
+                  {entry.voting_streak} match streak — earning <strong>+2 pts</strong> per correct pick
                 </span>
               </div>
             )}
@@ -179,12 +179,12 @@ export default function Leaderboard({ entries, currentUserId }: LeaderboardProps
               <div className="w-px h-6 flex-shrink-0" style={{ background: 'rgba(255,255,255,0.06)' }} />
 
               <StatPill
-                value={entry.voting_streak > 0 ? `${entry.voting_streak}d` : '—'}
-                label="streak"
+                value={entry.voting_streak > 0 ? `${entry.voting_streak}` : '—'}
+                label="match streak"
                 sublabel={
                   entry.voting_streak >= 5 ? 'on fire 🔥🔥'
                     : entry.voting_streak >= 3 ? '⚡ double pts active'
-                      : entry.voting_streak >= 1 ? 'keep it going'
+                      : entry.voting_streak >= 1 ? 'keep going'
                         : STREAK_TAUNTS[Math.floor(Math.random() * STREAK_TAUNTS.length)]
                 }
                 color={
