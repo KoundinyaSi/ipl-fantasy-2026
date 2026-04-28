@@ -1,5 +1,6 @@
 "use client";
 
+import SeasonPredictionBanner from "@/components/SeasonPredictionBanner";
 import FloatingNav from "@/components/FloatingNav";
 import Leaderboard from "@/components/Leaderboard";
 import MatchCard from "@/components/MatchCard";
@@ -77,19 +78,20 @@ export default function HomePage() {
         return;
       }
 
-      const [profileRes, matchesRes, predsRes, lbRes] = await Promise.all([
-        supabase.from("profiles").select("*").eq("id", user.id).single(),
-        supabase
-          .from("matches")
-          .select("*")
-          .order("match_date", { ascending: true }),
-        supabase
-          .from("predictions")
-          .select(
-            "match_id, user_id, predicted_team, is_correct, points, profiles(id, name, avatar_url)"
-          ),
-        fetch("/api/leaderboard").then((r) => r.json()),
-      ]);
+      const [profileRes, matchesRes, predsRes, lbRes] =
+        await Promise.all([
+          supabase.from("profiles").select("*").eq("id", user.id).single(),
+          supabase
+            .from("matches")
+            .select("*")
+            .order("match_date", { ascending: true }),
+          supabase
+            .from("predictions")
+            .select(
+              "match_id, user_id, predicted_team, is_correct, points, profiles(id, name, avatar_url)",
+            ),
+          fetch("/api/leaderboard").then((r) => r.json()),
+        ]);
 
       if (profileRes.data) setProfile(profileRes.data);
       if (matchesRes.data) setMatches(matchesRes.data);
@@ -111,22 +113,22 @@ export default function HomePage() {
     }
   }, [loadData]);
 
+  // Option 4 — auto-sync on page load if a match has started but not ended
+  // and enough time has passed that it should be over (3.5h window)
   useEffect(() => {
     if (matches.length === 0) return;
 
     const now = Date.now();
-    const sixHoursMs = 6 * 60 * 60 * 1000;
-
-    const hasRecentlyEndedMatch = matches.some((m) => {
-      if (!m.match_ended) return false;
-      const matchEndEstimate =
-        new Date(m.match_date).getTime() + 4 * 60 * 60 * 1000;
-      const endedMsAgo = now - matchEndEstimate;
-      return endedMsAgo > 0 && endedMsAgo < sixHoursMs;
+    const shouldSync = matches.some((m) => {
+      if (!m.match_started || m.match_ended) return false;
+      const startedMsAgo = now - new Date(m.match_date).getTime();
+      // Match started but DB still says not ended — trigger sync if it's been 30min+ since start
+      return startedMsAgo > 30 * 60 * 1000;
     });
 
-    if (!hasRecentlyEndedMatch) return;
+    if (!shouldSync) return;
 
+    console.log("Auto-sync triggered: match in progress or recently finished");
     fetch("/api/matches/sync", {
       headers: {
         Authorization: `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET ?? ""}`,
@@ -134,9 +136,14 @@ export default function HomePage() {
     })
       .then((r) => r.json())
       .then((data) => {
-        if (data.resultsProcessed > 0) loadData();
+        if (data.resultsProcessed > 0) {
+          // Results were resolved — reload everything so UI reflects new scores
+          loadData();
+        }
       })
-      .catch(() => {});
+      .catch(() => {
+        /* silently ignore — this is a best-effort background sync */
+      });
   }, [matches, loadData]);
 
   // Real-time predictions updates
@@ -151,12 +158,12 @@ export default function HomePage() {
           supabase
             .from("predictions")
             .select(
-              "match_id, user_id, predicted_team, is_correct, profiles(id, name, avatar_url)"
+              "match_id, user_id, predicted_team, is_correct, profiles(id, name, avatar_url)",
             )
             .then(({ data }) => {
               if (data) setPredictions(data as unknown as Prediction[]);
             });
-        }
+        },
       )
       .subscribe();
 
@@ -185,7 +192,7 @@ export default function HomePage() {
 
     setPredictions((prev) => {
       const filtered = prev.filter(
-        (p) => !(p.match_id === matchId && p.user_id === user.id)
+        (p) => !(p.match_id === matchId && p.user_id === user.id),
       );
       return [
         ...filtered,
@@ -217,18 +224,18 @@ export default function HomePage() {
     } = await supabase.auth.getUser();
     if (!user) return;
     setPredictions((prev) =>
-      prev.filter((p) => !(p.match_id === matchId && p.user_id === user.id))
+      prev.filter((p) => !(p.match_id === matchId && p.user_id === user.id)),
     );
   }
 
   const upcomingMatches = matches.filter((m) => !m.match_ended);
   const completedMatches = matches.filter((m) => m.match_ended).reverse(); // most recent first
-  console.log("Completed matches----------->", completedMatches);
+
   const myCorrectPredictions = predictions.filter(
-    (p) => p.user_id === profile?.id && p.is_correct === true
+    (p) => p.user_id === profile?.id && p.is_correct === true,
   ).length;
   const myTotalPredictions = predictions.filter(
-    (p) => p.user_id === profile?.id && p.is_correct !== null
+    (p) => p.user_id === profile?.id && p.is_correct !== null,
   ).length;
   const myTotalPoints = predictions
     .filter((p) => p.user_id === profile?.id)
@@ -289,7 +296,7 @@ export default function HomePage() {
         <div className="flex items-center gap-2">
           <span className="text-xl">🏏</span>
           <span className="font-display font-bold text-white text-lg">
-            IPL Predictor
+            IPL Predictor 2026
           </span>
         </div>
 
@@ -342,6 +349,7 @@ export default function HomePage() {
         {/* Tab content */}
         {tab === "matches" && (
           <div className="space-y-3 animate-in">
+            <SeasonPredictionBanner />
             {upcomingMatches.length === 0 ? (
               <EmptyState
                 icon="📅"
@@ -357,11 +365,11 @@ export default function HomePage() {
                   userPrediction={
                     predictions.find(
                       (p) =>
-                        p.match_id === match.id && p.user_id === profile?.id
+                        p.match_id === match.id && p.user_id === profile?.id,
                     )?.predicted_team || null
                   }
                   allPredictions={predictions.filter(
-                    (p) => p.match_id === match.id
+                    (p) => p.match_id === match.id,
                   )}
                   onVote={handleVote}
                   onUnvote={handleUnvote}
@@ -386,7 +394,7 @@ export default function HomePage() {
                   match={match}
                   currentUserId={profile?.id || ""}
                   allPredictions={predictions.filter(
-                    (p) => p.match_id === match.id
+                    (p) => p.match_id === match.id,
                   )}
                 />
               ))
@@ -405,7 +413,7 @@ export default function HomePage() {
               </span>
             </div>
             <Leaderboard
-              entries={leaderboard as unknown as LeaderboardEntry[]}
+              entries={leaderboard}
               currentUserId={profile?.id || ""}
             />
           </div>
