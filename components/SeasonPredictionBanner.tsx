@@ -161,9 +161,9 @@ export default function SeasonPredictionBanner() {
             {/* Points guide */}
             <div className="pt-3 pb-3 flex gap-3">
               {[
-                { icon: '🥇', label: '1st place only', pts: '+5' },
-                { icon: '🥇🥈', label: '1st + 2nd', pts: '+10' },
-                { icon: '🥈', label: '2nd only', pts: '0' },
+                { icon: '🥇', label: 'accurate 1st place prediction', pts: '+10' },
+                { icon: '🥈', label: 'accurate 2nd place prediction', pts: '+5' },
+                // { icon: '🥈', label: '2nd only', pts: '0' },
               ].map(r => (
                 <div key={r.label} className="flex-1 rounded-xl px-2 py-2 text-center"
                   style={{ background: 'rgba(255,255,255,0.04)' }}>
