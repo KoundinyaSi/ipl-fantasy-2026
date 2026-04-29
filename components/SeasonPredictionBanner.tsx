@@ -144,9 +144,9 @@ export default function SeasonPredictionBanner() {
           {/* Points breakdown — always visible */}
           {!hasPick && !isLocked && (
             <div className="mt-3 flex items-center gap-3 text-[11px] text-brand-muted">
-              <span>🥇 1st correct → <strong className="text-white">+5 pts</strong></span>
+              <span>🥇 1st correct → <strong className="text-white">+10 pts</strong></span>
               <span>·</span>
-              <span>🥇🥈 Both correct → <strong className="text-white">+10 pts</strong></span>
+              <span>🥈 2nd correct → <strong className="text-white">+5 pts</strong></span>
             </div>
           )}
         </div>
