@@ -78,7 +78,7 @@ function processMatch(m: CricAPIMatch): ProcessedMatch {
   const teams = m.teams || [];
   const team1 = teams[0] || "TBD";
   const team2 = teams[1] || "TBD";
-  const winner = extractWinner(m.status, teams);
+  const winner = extractWinner(m.status, teams, m.teamInfo);
 
   // CricAPI's matchEnded flag is unreliable — it often stays false even after a match
   // finishes. Fall back to parsing the status string for known completion phrases.
@@ -87,7 +87,8 @@ function processMatch(m: CricAPIMatch): ProcessedMatch {
     statusLower.includes("won") ||
     statusLower.includes("no result") ||
     statusLower.includes("match drawn") ||
-    statusLower.includes("tied");
+    statusLower.includes("tied") ||
+    statusLower.includes("super over");
   const matchEnded = m.matchEnded || isFinishedByStatus;
 
   return {
@@ -99,40 +100,75 @@ function processMatch(m: CricAPIMatch): ProcessedMatch {
     match_date: m.dateTimeGMT || m.date,
     status: m.status || "",
     winner,
-    match_started: m.matchStarted || matchEnded, // if ended, it obviously started
+    match_started: m.matchStarted || matchEnded,
     match_ended: matchEnded,
     raw_data: m,
   };
 }
 
 /**
- * Try to parse the winning team name from the status string.
- * CricAPI status looks like: "Mumbai Indians won by 5 wickets"
+ * Extract the winning team name from a CricAPI status string.
+ *
+ * Handles all known CricAPI status formats:
+ *   "Mumbai Indians won by 5 wickets"           — full team name
+ *   "LSG won by 9 runs (DLS)"                   — short name
+ *   "Match tied (KKR won the Super Over)"        — short name in parens
  */
-function extractWinner(status: string, teams: string[]): string | null {
+function extractWinner(
+  status: string,
+  teams: string[],
+  teamInfo?: Array<{ name: string; shortname: string; img: string }>
+): string | null {
   if (!status || !teams.length) return null;
 
   const statusLower = status.toLowerCase();
+
+  // No result / abandoned — no winner
+  if (
+    statusLower.includes("no result") ||
+    statusLower.includes("abandoned") ||
+    statusLower.includes("match drawn")
+  ) {
+    return null;
+  }
+
+  // Must contain "won" to have a winner
   if (!statusLower.includes("won")) return null;
 
-  // Try to find which team name appears before "won"
+  // Step 1 — full team name match (most reliable)
+  // e.g. "Mumbai Indians won by 5 wickets"
   for (const team of teams) {
     if (statusLower.includes(team.toLowerCase())) {
       return team;
     }
   }
 
-  // Fallback: some statuses use short forms — try abbreviation matching
+  // Step 2 — short name match via teamInfo
+  // e.g. "LSG won by 9 runs", "Match tied (KKR won the Super Over)"
+  if (teamInfo?.length) {
+    for (const info of teamInfo) {
+      const shortLower = info.shortname.toLowerCase();
+      // Match whole word only — avoid "rcb" matching "rcbw" etc.
+      const shortWordRegex = new RegExp(`\\b${shortLower}\\b`);
+      if (shortWordRegex.test(statusLower)) {
+        const fullName = teams.find(
+          (t) => t.toLowerCase() === info.name.toLowerCase()
+        );
+        if (fullName) return fullName;
+      }
+    }
+  }
+
   return null;
 }
 
 /** Fetch a specific match's current state (for live score updates) */
 export async function fetchMatchInfo(
-  matchId: string,
+  matchId: string
 ): Promise<ProcessedMatch | null> {
   const res = await fetch(
     `${CRICAPI_BASE}/match_info?apikey=${API_KEY}&id=${matchId}`,
-    { next: { revalidate: 60 } },
+    { next: { revalidate: 60 } }
   );
 
   if (!res.ok) return null;
