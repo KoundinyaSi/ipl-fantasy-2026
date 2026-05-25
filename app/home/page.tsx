@@ -23,6 +23,7 @@ interface Profile {
 
 interface Match {
   id: string;
+  name: string;
   team1: string;
   team2: string;
   venue: string;
@@ -78,20 +79,19 @@ export default function HomePage() {
         return;
       }
 
-      const [profileRes, matchesRes, predsRes, lbRes] =
-        await Promise.all([
-          supabase.from("profiles").select("*").eq("id", user.id).single(),
-          supabase
-            .from("matches")
-            .select("*")
-            .order("match_date", { ascending: true }),
-          supabase
-            .from("predictions")
-            .select(
-              "match_id, user_id, predicted_team, is_correct, points, profiles(id, name, avatar_url)",
-            ),
-          fetch("/api/leaderboard").then((r) => r.json()),
-        ]);
+      const [profileRes, matchesRes, predsRes, lbRes] = await Promise.all([
+        supabase.from("profiles").select("*").eq("id", user.id).single(),
+        supabase
+          .from("matches")
+          .select("*")
+          .order("match_date", { ascending: true }),
+        supabase
+          .from("predictions")
+          .select(
+            "match_id, user_id, predicted_team, is_correct, points, profiles(id, name, avatar_url)",
+          ),
+        fetch("/api/leaderboard").then((r) => r.json()),
+      ]);
 
       if (profileRes.data) setProfile(profileRes.data);
       if (matchesRes.data) setMatches(matchesRes.data);
