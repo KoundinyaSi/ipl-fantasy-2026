@@ -82,21 +82,21 @@ export async function GET(request: Request) {
         resultsProcessed++;
 
         // Fantasy points
-        const { data: unresolved } = await supabase
-          .from("fantasy_pick_players")
-          .select("id")
-          .eq("points_earned", 0)
-          .limit(1)
-          .returns<{ id: string }[]>();
+        // const { data: unresolved } = await supabase
+        //   .from("fantasy_pick_players")
+        //   .select("id")
+        //   .eq("points_earned", 0)
+        //   .limit(1)
+        //   .returns<{ id: string }[]>();
 
-        if (unresolved && unresolved.length > 0) {
-          const appUrl =
-            process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-          await fetch(`${appUrl}/api/fantasy/scorecard?match_id=${match.id}`, {
-            method: "POST",
-            headers: { authorization: `Bearer ${process.env.CRON_SECRET}` },
-          }).catch((e) => console.error("Fantasy scorecard error:", e));
-        }
+        // if (unresolved && unresolved.length > 0) {
+        //   const appUrl =
+        //     process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+        //   await fetch(`${appUrl}/api/fantasy/scorecard?match_id=${match.id}`, {
+        //     method: "POST",
+        //     headers: { authorization: `Bearer ${process.env.CRON_SECRET}` },
+        //   }).catch((e) => console.error("Fantasy scorecard error:", e));
+        // }
       }
     }
 
