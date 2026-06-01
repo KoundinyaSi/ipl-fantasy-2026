@@ -71,6 +71,7 @@ function useConfetti(active: boolean) {
     };
 
     function createParticle(burst = false): Particle {
+      if (!canvas) throw new Error("Canvas not found");
       return {
         x: Math.random() * canvas.width,
         y: burst ? Math.random() * canvas.height * 0.5 : -20,
@@ -97,6 +98,7 @@ function useConfetti(active: boolean) {
 
     let frame = 0;
     function draw() {
+      if (!canvas) return;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       frame++;
       if (frame < 300 && frame % 3 === 0) {
