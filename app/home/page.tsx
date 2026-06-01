@@ -1,6 +1,7 @@
 "use client";
 
 import SeasonPredictionBanner from "@/components/SeasonPredictionBanner";
+import SeasonWinnersOverlay from "@/components/SeasonWinnersOverlay";
 import FloatingNav from "@/components/FloatingNav";
 import Leaderboard from "@/components/Leaderboard";
 import MatchCard from "@/components/MatchCard";
@@ -63,6 +64,7 @@ export default function HomePage() {
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showSeasonWinners, setShowSeasonWinners] = useState(true);
   const [error, setError] = useState("");
   const supabase = createClient();
   const router = useRouter();
@@ -91,6 +93,7 @@ export default function HomePage() {
             "match_id, user_id, predicted_team, is_correct, points, profiles(id, name, avatar_url)",
           ),
         fetch("/api/leaderboard").then((r) => r.json()),
+        // fetch('/api/fantasy/leaderboard').then((r) => r.json()),
       ]);
 
       if (profileRes.data) setProfile(profileRes.data);
@@ -103,6 +106,11 @@ export default function HomePage() {
       console.error(e);
     } finally {
       setLoading(false);
+      // Show season winners overlay once per session
+      if (!sessionStorage.getItem("season_winners_seen")) {
+        setShowSeasonWinners(true);
+        sessionStorage.setItem("season_winners_seen", "1");
+      }
     }
   }, [router, supabase]);
 
@@ -293,13 +301,6 @@ export default function HomePage() {
           borderBottom: "1px solid rgba(255,255,255,0.05)",
         }}
       >
-        <div className="flex items-center gap-2">
-          <span className="text-xl">🏏</span>
-          <span className="font-display font-bold text-white text-lg">
-            IPL Predictor 2026
-          </span>
-        </div>
-
         {profile && (
           <ProfileMenu
             user={{
@@ -419,6 +420,11 @@ export default function HomePage() {
           </div>
         )}
       </main>
+
+      {/* Season winners overlay */}
+      {showSeasonWinners && (
+        <SeasonWinnersOverlay onClose={() => setShowSeasonWinners(false)} />
+      )}
 
       {/* Floating nav */}
       <FloatingNav activeTab={tab} onTabChange={setTab} />
